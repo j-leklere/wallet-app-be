@@ -17,4 +17,6 @@ public record TransferResponse(
     LocalDate date,
     String description,
     Long fromAccountId,
-    Long toAccountId) {}
+    String fromAccountName,
+    Long toAccountId,
+    String toAccountName) {}

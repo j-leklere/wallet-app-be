@@ -15,6 +15,8 @@ public interface TransactionMapper {
   @Mapping(source = "referenceCurrency.code", target = "referenceCurrencyCode")
   @Mapping(source = "referenceCurrency.symbol", target = "referenceCurrencySymbol")
   @Mapping(source = "account.id", target = "accountId")
+  @Mapping(source = "account.name", target = "accountName")
   @Mapping(source = "category.id", target = "categoryId")
+  @Mapping(source = "category.name", target = "categoryName")
   TransactionResponse toResponse(Transaction transaction);
 }

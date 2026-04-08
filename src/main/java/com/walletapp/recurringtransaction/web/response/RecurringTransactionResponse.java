@@ -18,4 +18,6 @@ public record RecurringTransactionResponse(
     String description,
     boolean active,
     Long accountId,
-    Long categoryId) {}
+    String accountName,
+    Long categoryId,
+    String categoryName) {}

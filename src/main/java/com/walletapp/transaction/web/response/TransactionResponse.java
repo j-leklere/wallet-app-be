@@ -19,4 +19,6 @@ public record TransactionResponse(
     LocalDate date,
     String description,
     Long accountId,
-    Long categoryId) {}
+    String accountName,
+    Long categoryId,
+    String categoryName) {}

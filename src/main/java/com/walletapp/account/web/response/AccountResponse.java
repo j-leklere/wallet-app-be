@@ -1,6 +1,7 @@
 package com.walletapp.account.web.response;
 
 import com.walletapp.account.internal.domain.AccountType;
+import java.math.BigDecimal;
 
 public record AccountResponse(
     Long id,
@@ -9,4 +10,5 @@ public record AccountResponse(
     Long currencyId,
     String currencyCode,
     String currencySymbol,
-    boolean active) {}
+    boolean active,
+    BigDecimal balance) {}

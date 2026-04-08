@@ -15,6 +15,8 @@ public interface TransferMapper {
   @Mapping(source = "toCurrency.code", target = "toCurrencyCode")
   @Mapping(source = "toCurrency.symbol", target = "toCurrencySymbol")
   @Mapping(source = "fromAccount.id", target = "fromAccountId")
+  @Mapping(source = "fromAccount.name", target = "fromAccountName")
   @Mapping(source = "toAccount.id", target = "toAccountId")
+  @Mapping(source = "toAccount.name", target = "toAccountName")
   TransferResponse toResponse(Transfer transfer);
 }

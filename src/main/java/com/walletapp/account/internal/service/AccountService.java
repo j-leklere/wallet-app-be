@@ -9,6 +9,7 @@ import com.walletapp.account.web.response.AccountResponse;
 import com.walletapp.currency.internal.domain.Currency;
 import com.walletapp.currency.internal.repository.CurrencyRepository;
 import com.walletapp.shared.exception.ResourceNotFoundException;
+import com.walletapp.transaction.internal.repository.TransactionRepository;
 import com.walletapp.user.internal.domain.User;
 import com.walletapp.user.internal.repository.UserRepository;
 import java.util.List;
@@ -25,15 +26,20 @@ public class AccountService {
   private final CurrencyRepository currencyRepository;
   private final UserRepository userRepository;
   private final AccountMapper accountMapper;
+  private final TransactionRepository transactionRepository;
 
   public List<AccountResponse> findAllByUser(Long userId) {
     return accountRepository.findAllByUserId(userId).stream()
-        .map(accountMapper::toResponse)
+        .map(
+            account ->
+                accountMapper.toResponse(
+                    account, transactionRepository.computeBalance(account.getId())))
         .toList();
   }
 
   public AccountResponse findById(Long id, Long userId) {
-    return accountMapper.toResponse(getOrThrow(id, userId));
+    Account account = getOrThrow(id, userId);
+    return accountMapper.toResponse(account, transactionRepository.computeBalance(account.getId()));
   }
 
   public AccountResponse create(CreateAccountRequest request, Long userId) {
@@ -49,7 +55,8 @@ public class AccountService {
             .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
 
     Account account = Account.create(request.name(), request.type(), currency, user);
-    return accountMapper.toResponse(accountRepository.save(account));
+    Account saved = accountRepository.save(account);
+    return accountMapper.toResponse(saved, transactionRepository.computeBalance(saved.getId()));
   }
 
   public AccountResponse update(Long id, Long userId, UpdateAccountRequest request) {
@@ -57,7 +64,8 @@ public class AccountService {
     if (request.name() != null) account.setName(request.name());
     if (request.type() != null) account.setType(request.type());
     if (request.active() != null) account.setActive(request.active());
-    return accountMapper.toResponse(accountRepository.save(account));
+    Account saved = accountRepository.save(account);
+    return accountMapper.toResponse(saved, transactionRepository.computeBalance(saved.getId()));
   }
 
   public void delete(Long id, Long userId) {

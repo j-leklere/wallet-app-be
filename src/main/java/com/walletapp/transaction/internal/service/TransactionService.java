@@ -6,6 +6,7 @@ import com.walletapp.category.internal.domain.Category;
 import com.walletapp.category.internal.repository.CategoryRepository;
 import com.walletapp.currency.internal.domain.Currency;
 import com.walletapp.currency.internal.repository.CurrencyRepository;
+import com.walletapp.exchangerate.DolarApiService;
 import com.walletapp.shared.PagedResponse;
 import com.walletapp.shared.exception.ResourceNotFoundException;
 import com.walletapp.transaction.internal.domain.Transaction;
@@ -18,6 +19,7 @@ import com.walletapp.transaction.web.request.UpdateTransactionRequest;
 import com.walletapp.transaction.web.response.TransactionResponse;
 import com.walletapp.user.internal.domain.User;
 import com.walletapp.user.internal.repository.UserRepository;
+import java.math.BigDecimal;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -34,6 +36,7 @@ public class TransactionService {
   private final CurrencyRepository currencyRepository;
   private final UserRepository userRepository;
   private final TransactionMapper transactionMapper;
+  private final DolarApiService dolarApiService;
 
   public PagedResponse<TransactionResponse> findAllByUser(
       Long userId, TransactionFilter filter, Pageable pageable) {
@@ -61,14 +64,6 @@ public class TransactionService {
                     new ResourceNotFoundException(
                         "Currency not found: " + request.originalCurrencyId()));
 
-    Currency referenceCurrency =
-        currencyRepository
-            .findById(request.referenceCurrencyId())
-            .orElseThrow(
-                () ->
-                    new ResourceNotFoundException(
-                        "Currency not found: " + request.referenceCurrencyId()));
-
     Account account =
         accountRepository
             .findByIdAndUserId(request.accountId(), userId)
@@ -85,14 +80,16 @@ public class TransactionService {
                       new ResourceNotFoundException("Category not found: " + request.categoryId()));
     }
 
+    BigDecimal exchangeRate = resolveExchangeRate(originalCurrency, request.date());
+
     Transaction transaction =
         Transaction.create(
             request.type(),
             request.originalAmount(),
             originalCurrency,
-            request.referenceAmount(),
-            referenceCurrency,
-            request.exchangeRate(),
+            request.originalAmount(),
+            originalCurrency,
+            exchangeRate,
             request.date(),
             request.description(),
             account,
@@ -106,7 +103,9 @@ public class TransactionService {
     Transaction transaction = getOrThrow(id, userId);
 
     if (request.type() != null) transaction.setType(request.type());
-    if (request.originalAmount() != null) transaction.setOriginalAmount(request.originalAmount());
+    if (request.date() != null) transaction.setDate(request.date());
+    if (request.description() != null) transaction.setDescription(request.description());
+
     if (request.originalCurrencyId() != null) {
       Currency currency =
           currencyRepository
@@ -116,22 +115,12 @@ public class TransactionService {
                       new ResourceNotFoundException(
                           "Currency not found: " + request.originalCurrencyId()));
       transaction.setOriginalCurrency(currency);
-    }
-    if (request.referenceAmount() != null)
-      transaction.setReferenceAmount(request.referenceAmount());
-    if (request.referenceCurrencyId() != null) {
-      Currency currency =
-          currencyRepository
-              .findById(request.referenceCurrencyId())
-              .orElseThrow(
-                  () ->
-                      new ResourceNotFoundException(
-                          "Currency not found: " + request.referenceCurrencyId()));
       transaction.setReferenceCurrency(currency);
     }
-    if (request.exchangeRate() != null) transaction.setExchangeRate(request.exchangeRate());
-    if (request.date() != null) transaction.setDate(request.date());
-    if (request.description() != null) transaction.setDescription(request.description());
+    if (request.originalAmount() != null) {
+      transaction.setOriginalAmount(request.originalAmount());
+      transaction.setReferenceAmount(request.originalAmount());
+    }
     if (request.accountId() != null) {
       Account account =
           accountRepository
@@ -150,6 +139,14 @@ public class TransactionService {
       transaction.setCategory(category);
     }
 
+    // Recompute exchange rate if any of amount/currency/date changed
+    if (request.originalAmount() != null
+        || request.originalCurrencyId() != null
+        || request.date() != null) {
+      transaction.setExchangeRate(
+          resolveExchangeRate(transaction.getOriginalCurrency(), transaction.getDate()));
+    }
+
     return transactionMapper.toResponse(transactionRepository.save(transaction));
   }
 
@@ -162,5 +159,16 @@ public class TransactionService {
     return transactionRepository
         .findByIdAndUserId(id, userId)
         .orElseThrow(() -> new ResourceNotFoundException("Transaction not found: " + id));
+  }
+
+  /**
+   * Returns the exchange rate to store on the transaction. ARS → 1.0 (no conversion needed). USD →
+   * USD/ARS rate fetched from DolarAPI for the given date.
+   */
+  private BigDecimal resolveExchangeRate(Currency currency, java.time.LocalDate date) {
+    return switch (currency.getCode()) {
+      case "USD" -> dolarApiService.getUsdToArsRate(date);
+      default -> BigDecimal.ONE;
+    };
   }
 }

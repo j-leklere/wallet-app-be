@@ -126,7 +126,8 @@ class AccountServiceTest {
     when(accountMapper.toResponse(saved)).thenReturn(response);
 
     AccountResponse result =
-        accountService.update(1L, 1L, new UpdateAccountRequest("Updated", AccountType.SAVINGS, false));
+        accountService.update(
+            1L, 1L, new UpdateAccountRequest("Updated", AccountType.SAVINGS, false));
 
     assertThat(result).isEqualTo(response);
   }

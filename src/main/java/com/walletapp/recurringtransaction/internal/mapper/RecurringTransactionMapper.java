@@ -12,6 +12,8 @@ public interface RecurringTransactionMapper {
   @Mapping(source = "originalCurrency.code", target = "originalCurrencyCode")
   @Mapping(source = "originalCurrency.symbol", target = "originalCurrencySymbol")
   @Mapping(source = "account.id", target = "accountId")
+  @Mapping(source = "account.name", target = "accountName")
   @Mapping(source = "category.id", target = "categoryId")
+  @Mapping(source = "category.name", target = "categoryName")
   RecurringTransactionResponse toResponse(RecurringTransaction recurringTransaction);
 }
