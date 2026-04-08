@@ -4,4 +4,7 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Size;
 
 public record UpdateUserRequest(
-    @Size(max = 50) String username, @Email(message = "Email must be valid") String email) {}
+    @Size(max = 50) String username,
+    @Email(message = "Email must be valid") String email,
+    String currentPassword,
+    @Size(min = 6, message = "La contraseña debe tener al menos 6 caracteres") String newPassword) {}
