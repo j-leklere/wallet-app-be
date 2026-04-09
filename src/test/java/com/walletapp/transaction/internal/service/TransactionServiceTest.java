@@ -116,9 +116,6 @@ class TransactionServiceTest {
             TransactionType.EXPENSE,
             BigDecimal.TEN,
             1L,
-            BigDecimal.TEN,
-            1L,
-            BigDecimal.ONE,
             LocalDate.now(),
             "Test",
             1L,
@@ -151,9 +148,6 @@ class TransactionServiceTest {
             TransactionType.EXPENSE,
             BigDecimal.TEN,
             1L,
-            BigDecimal.TEN,
-            1L,
-            BigDecimal.ONE,
             LocalDate.now(),
             "Test",
             1L,
@@ -175,9 +169,6 @@ class TransactionServiceTest {
             TransactionType.EXPENSE,
             BigDecimal.TEN,
             1L,
-            BigDecimal.TEN,
-            1L,
-            BigDecimal.ONE,
             LocalDate.now(),
             null,
             1L,
@@ -222,6 +213,8 @@ class TransactionServiceTest {
         LocalDate.now(),
         "Test",
         1L,
+        "Test Account",
+        null,
         null);
   }
 }
