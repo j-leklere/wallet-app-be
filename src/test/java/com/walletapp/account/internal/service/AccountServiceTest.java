@@ -3,6 +3,7 @@ package com.walletapp.account.internal.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -16,6 +17,7 @@ import com.walletapp.account.web.response.AccountResponse;
 import com.walletapp.currency.internal.domain.Currency;
 import com.walletapp.currency.internal.repository.CurrencyRepository;
 import com.walletapp.shared.exception.ResourceNotFoundException;
+import com.walletapp.transaction.internal.repository.TransactionRepository;
 import com.walletapp.user.internal.domain.User;
 import com.walletapp.user.internal.repository.UserRepository;
 import java.math.BigDecimal;
@@ -34,6 +36,7 @@ class AccountServiceTest {
   @Mock CurrencyRepository currencyRepository;
   @Mock UserRepository userRepository;
   @Mock AccountMapper accountMapper;
+  @Mock TransactionRepository transactionRepository;
 
   @InjectMocks AccountService accountService;
 
@@ -43,7 +46,8 @@ class AccountServiceTest {
     AccountResponse response =
         new AccountResponse(1L, "Checking", AccountType.CHECKING, 1L, "USD", "$", true, BigDecimal.ZERO);
     when(accountRepository.findAllByUserId(1L)).thenReturn(List.of(account));
-    when(accountMapper.toResponse(account)).thenReturn(response);
+    when(transactionRepository.findAllAccountBalances(1L)).thenReturn(List.of());
+    when(accountMapper.toResponse(eq(account), any(BigDecimal.class))).thenReturn(response);
 
     List<AccountResponse> result = accountService.findAllByUser(1L);
 
@@ -56,7 +60,8 @@ class AccountServiceTest {
     AccountResponse response =
         new AccountResponse(1L, "Checking", AccountType.CHECKING, 1L, "USD", "$", true, BigDecimal.ZERO);
     when(accountRepository.findByIdAndUserId(1L, 1L)).thenReturn(Optional.of(account));
-    when(accountMapper.toResponse(account)).thenReturn(response);
+    when(transactionRepository.computeBalance(any())).thenReturn(BigDecimal.ZERO);
+    when(accountMapper.toResponse(eq(account), eq(BigDecimal.ZERO))).thenReturn(response);
 
     AccountResponse result = accountService.findById(1L, 1L);
 
@@ -82,7 +87,8 @@ class AccountServiceTest {
     when(currencyRepository.findById(1L)).thenReturn(Optional.of(currency));
     when(userRepository.findById(1L)).thenReturn(Optional.of(user));
     when(accountRepository.save(any(Account.class))).thenReturn(saved);
-    when(accountMapper.toResponse(saved)).thenReturn(response);
+    when(transactionRepository.computeBalance(any())).thenReturn(BigDecimal.ZERO);
+    when(accountMapper.toResponse(eq(saved), eq(BigDecimal.ZERO))).thenReturn(response);
 
     AccountResponse result =
         accountService.create(new CreateAccountRequest("Checking", AccountType.CHECKING, 1L), 1L);
@@ -124,7 +130,8 @@ class AccountServiceTest {
         new AccountResponse(1L, "Updated", AccountType.SAVINGS, 1L, "USD", "$", false, BigDecimal.ZERO);
     when(accountRepository.findByIdAndUserId(1L, 1L)).thenReturn(Optional.of(account));
     when(accountRepository.save(account)).thenReturn(saved);
-    when(accountMapper.toResponse(saved)).thenReturn(response);
+    when(transactionRepository.computeBalance(any())).thenReturn(BigDecimal.ZERO);
+    when(accountMapper.toResponse(eq(saved), eq(BigDecimal.ZERO))).thenReturn(response);
 
     AccountResponse result =
         accountService.update(
@@ -137,6 +144,7 @@ class AccountServiceTest {
   void delete_deletesAccount() {
     Account account = new Account();
     when(accountRepository.findByIdAndUserId(1L, 1L)).thenReturn(Optional.of(account));
+    when(transactionRepository.existsByAccountId(1L)).thenReturn(false);
 
     accountService.delete(1L, 1L);
 
