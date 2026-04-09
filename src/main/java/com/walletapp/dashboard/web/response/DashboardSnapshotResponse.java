@@ -18,7 +18,8 @@ public record DashboardSnapshotResponse(
       AccountType type,
       String currencyCode,
       String currencySymbol,
-      BigDecimal balance) {}
+      BigDecimal balance,
+      BigDecimal arsBalance) {}
 
   public record RecentTransaction(
       Long id,

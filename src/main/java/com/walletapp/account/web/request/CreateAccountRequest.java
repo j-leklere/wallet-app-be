@@ -6,6 +6,6 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 public record CreateAccountRequest(
-    @NotBlank(message = "Name is required") @Size(max = 100) String name,
-    @NotNull(message = "Type is required") AccountType type,
-    @NotNull(message = "Currency is required") Long currencyId) {}
+    @NotBlank(message = "El nombre es requerido") @Size(max = 100) String name,
+    @NotNull(message = "El tipo es requerido") AccountType type,
+    @NotNull(message = "La moneda es requerida") Long currencyId) {}

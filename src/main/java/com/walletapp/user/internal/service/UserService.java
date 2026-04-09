@@ -1,5 +1,6 @@
 package com.walletapp.user.internal.service;
 
+import com.walletapp.shared.exception.InvalidPasswordException;
 import com.walletapp.shared.exception.ResourceNotFoundException;
 import com.walletapp.shared.exception.UserAlreadyExistsException;
 import com.walletapp.user.internal.domain.User;
@@ -8,11 +9,9 @@ import com.walletapp.user.internal.repository.UserRepository;
 import com.walletapp.user.web.request.UpdateUserRequest;
 import com.walletapp.user.web.response.UserResponse;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
 
 @Service
 @Transactional
@@ -45,8 +44,9 @@ public class UserService {
     }
 
     if (request.newPassword() != null && !request.newPassword().isBlank()) {
-      if (request.currentPassword() == null || !passwordEncoder.matches(request.currentPassword(), user.getPassword())) {
-        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La contraseña actual es incorrecta");
+      if (request.currentPassword() == null
+          || !passwordEncoder.matches(request.currentPassword(), user.getPassword())) {
+        throw new InvalidPasswordException("La contraseña actual es incorrecta");
       }
       user.setPassword(passwordEncoder.encode(request.newPassword()));
     }

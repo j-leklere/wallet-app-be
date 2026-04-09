@@ -8,12 +8,12 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 
 public record CreateRecurringTransactionRequest(
-    @NotNull(message = "Type is required") TransactionType type,
-    @NotNull(message = "Original amount is required") @Positive BigDecimal originalAmount,
-    @NotNull(message = "Original currency is required") Long originalCurrencyId,
-    @NotNull(message = "Frequency is required") RecurringFrequency frequency,
-    @NotNull(message = "Next execution date is required") LocalDate nextExecutionDate,
+    @NotNull(message = "El tipo es requerido") TransactionType type,
+    @NotNull(message = "El monto es requerido") @Positive BigDecimal originalAmount,
+    @NotNull(message = "La moneda es requerida") Long originalCurrencyId,
+    @NotNull(message = "La frecuencia es requerida") RecurringFrequency frequency,
+    @NotNull(message = "La fecha de próxima ejecución es requerida") LocalDate nextExecutionDate,
     LocalDate endDate,
     String description,
-    @NotNull(message = "Account is required") Long accountId,
+    @NotNull(message = "La cuenta es requerida") Long accountId,
     Long categoryId) {}

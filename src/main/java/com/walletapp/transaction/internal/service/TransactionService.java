@@ -6,11 +6,9 @@ import com.walletapp.category.internal.domain.Category;
 import com.walletapp.category.internal.repository.CategoryRepository;
 import com.walletapp.currency.internal.domain.Currency;
 import com.walletapp.currency.internal.repository.CurrencyRepository;
-import com.walletapp.exchangerate.DolarApiService;
+import com.walletapp.exchangerate.ExchangeRateResolver;
 import com.walletapp.shared.PagedResponse;
 import com.walletapp.shared.exception.ResourceNotFoundException;
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import com.walletapp.transaction.internal.domain.Transaction;
 import com.walletapp.transaction.internal.mapper.TransactionMapper;
 import com.walletapp.transaction.internal.repository.TransactionRepository;
@@ -21,6 +19,7 @@ import com.walletapp.transaction.web.request.UpdateTransactionRequest;
 import com.walletapp.transaction.web.response.TransactionResponse;
 import com.walletapp.user.internal.domain.User;
 import com.walletapp.user.internal.repository.UserRepository;
+import java.math.BigDecimal;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -37,7 +36,7 @@ public class TransactionService {
   private final CurrencyRepository currencyRepository;
   private final UserRepository userRepository;
   private final TransactionMapper transactionMapper;
-  private final DolarApiService dolarApiService;
+  private final ExchangeRateResolver rateResolver;
 
   public PagedResponse<TransactionResponse> findAllByUser(
       Long userId, TransactionFilter filter, Pageable pageable) {
@@ -81,9 +80,11 @@ public class TransactionService {
                       new ResourceNotFoundException("Category not found: " + request.categoryId()));
     }
 
-    BigDecimal exchangeRate = resolveExchangeRate(originalCurrency, request.date());
-    Currency referenceCurrency = resolveReferenceCurrency(originalCurrency);
-    BigDecimal referenceAmount = resolveReferenceAmount(originalCurrency, request.originalAmount(), exchangeRate);
+    BigDecimal exchangeRate = rateResolver.resolveRate(originalCurrency, request.date());
+    Currency referenceCurrency = rateResolver.resolveReferenceCurrency(originalCurrency);
+    BigDecimal referenceAmount =
+        rateResolver.resolveReferenceAmount(
+            originalCurrency, request.originalAmount(), exchangeRate);
 
     Transaction transaction =
         Transaction.create(
@@ -144,10 +145,14 @@ public class TransactionService {
     if (request.originalAmount() != null
         || request.originalCurrencyId() != null
         || request.date() != null) {
-      BigDecimal rate = resolveExchangeRate(transaction.getOriginalCurrency(), transaction.getDate());
+      BigDecimal rate =
+          rateResolver.resolveRate(transaction.getOriginalCurrency(), transaction.getDate());
       transaction.setExchangeRate(rate);
-      transaction.setReferenceCurrency(resolveReferenceCurrency(transaction.getOriginalCurrency()));
-      transaction.setReferenceAmount(resolveReferenceAmount(transaction.getOriginalCurrency(), transaction.getOriginalAmount(), rate));
+      transaction.setReferenceCurrency(
+          rateResolver.resolveReferenceCurrency(transaction.getOriginalCurrency()));
+      transaction.setReferenceAmount(
+          rateResolver.resolveReferenceAmount(
+              transaction.getOriginalCurrency(), transaction.getOriginalAmount(), rate));
     }
 
     return transactionMapper.toResponse(transactionRepository.save(transaction));
@@ -162,37 +167,5 @@ public class TransactionService {
     return transactionRepository
         .findByIdAndUserId(id, userId)
         .orElseThrow(() -> new ResourceNotFoundException("Transaction not found: " + id));
-  }
-
-  /**
-   * Returns the exchange rate to store on the transaction.
-   * ARS → 1.0. USD → USD/ARS rate fetched from DolarAPI for the given date.
-   */
-  private BigDecimal resolveExchangeRate(Currency currency, java.time.LocalDate date) {
-    return switch (currency.getCode()) {
-      case "USD" -> dolarApiService.getUsdToArsRate(date);
-      default -> BigDecimal.ONE;
-    };
-  }
-
-  /**
-   * Reference currency is always ARS. For ARS transactions it's the same; for
-   * USD transactions it's the target currency after conversion.
-   */
-  private Currency resolveReferenceCurrency(Currency originalCurrency) {
-    if ("ARS".equals(originalCurrency.getCode())) return originalCurrency;
-    return currencyRepository
-        .findByCode("ARS")
-        .orElse(originalCurrency); // safe fallback — ARS always exists
-  }
-
-  /**
-   * Reference amount is the original amount converted to ARS.
-   * ARS → same amount. USD → originalAmount * exchangeRate.
-   */
-  private BigDecimal resolveReferenceAmount(
-      Currency originalCurrency, BigDecimal originalAmount, BigDecimal exchangeRate) {
-    if ("ARS".equals(originalCurrency.getCode())) return originalAmount;
-    return originalAmount.multiply(exchangeRate).setScale(4, RoundingMode.HALF_UP);
   }
 }

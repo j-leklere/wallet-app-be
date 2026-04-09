@@ -1,16 +1,14 @@
 package com.walletapp.recurringtransaction.internal.scheduler;
 
-import com.walletapp.currency.internal.domain.Currency;
-import com.walletapp.currency.internal.repository.CurrencyRepository;
-import com.walletapp.exchangerate.DolarApiService;
+import com.walletapp.exchangerate.ExchangeRateResolver;
 import com.walletapp.recurringtransaction.internal.domain.RecurringFrequency;
 import com.walletapp.recurringtransaction.internal.domain.RecurringTransaction;
 import com.walletapp.recurringtransaction.internal.repository.RecurringTransactionRepository;
 import com.walletapp.transaction.internal.domain.Transaction;
 import com.walletapp.transaction.internal.repository.TransactionRepository;
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,16 +21,17 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class RecurringTransactionScheduler {
 
+  private static final ZoneId ZONE = ZoneId.of("America/Argentina/Buenos_Aires");
+
   private final RecurringTransactionRepository recurringRepository;
   private final TransactionRepository transactionRepository;
-  private final CurrencyRepository currencyRepository;
-  private final DolarApiService dolarApiService;
+  private final ExchangeRateResolver rateResolver;
 
-  /** Runs every day at 01:00 server time. */
-  @Scheduled(cron = "0 0 1 * * *")
+  /** Runs every day at 01:00 Argentina time. */
+  @Scheduled(cron = "0 0 1 * * *", zone = "America/Argentina/Buenos_Aires")
   @Transactional
   public void executeRecurring() {
-    LocalDate today = LocalDate.now();
+    LocalDate today = LocalDate.now(ZONE);
     List<RecurringTransaction> due = recurringRepository.findAllDue(today);
 
     log.info("Recurring scheduler: {} transactions due on {}", due.size(), today);
@@ -49,10 +48,11 @@ public class RecurringTransactionScheduler {
   }
 
   private void createTransaction(RecurringTransaction rt) {
-    Currency originalCurrency = rt.getOriginalCurrency();
-    BigDecimal exchangeRate = resolveExchangeRate(originalCurrency, rt.getNextExecutionDate());
-    Currency referenceCurrency = resolveReferenceCurrency(originalCurrency);
-    BigDecimal referenceAmount = resolveReferenceAmount(originalCurrency, rt.getOriginalAmount(), exchangeRate);
+    var originalCurrency = rt.getOriginalCurrency();
+    BigDecimal exchangeRate = rateResolver.resolveRate(originalCurrency, rt.getNextExecutionDate());
+    var referenceCurrency = rateResolver.resolveReferenceCurrency(originalCurrency);
+    BigDecimal referenceAmount =
+        rateResolver.resolveReferenceAmount(originalCurrency, rt.getOriginalAmount(), exchangeRate);
 
     Transaction transaction =
         Transaction.create(
@@ -73,24 +73,6 @@ public class RecurringTransactionScheduler {
         "Created transaction for recurring id={}, date={}", rt.getId(), rt.getNextExecutionDate());
   }
 
-  private BigDecimal resolveExchangeRate(Currency currency, LocalDate date) {
-    return switch (currency.getCode()) {
-      case "USD" -> dolarApiService.getUsdToArsRate(date);
-      default -> BigDecimal.ONE;
-    };
-  }
-
-  private Currency resolveReferenceCurrency(Currency originalCurrency) {
-    if ("ARS".equals(originalCurrency.getCode())) return originalCurrency;
-    return currencyRepository.findByCode("ARS").orElse(originalCurrency);
-  }
-
-  private BigDecimal resolveReferenceAmount(
-      Currency originalCurrency, BigDecimal originalAmount, BigDecimal exchangeRate) {
-    if ("ARS".equals(originalCurrency.getCode())) return originalAmount;
-    return originalAmount.multiply(exchangeRate).setScale(4, RoundingMode.HALF_UP);
-  }
-
   private void advanceNextExecutionDate(RecurringTransaction rt, LocalDate today) {
     LocalDate next = computeNext(rt.getNextExecutionDate(), rt.getFrequency(), today);
 
@@ -107,8 +89,8 @@ public class RecurringTransactionScheduler {
   }
 
   /**
-   * Advances from {@code current} by one frequency step, ensuring the result is
-   * strictly after {@code today} to handle catch-up on missed executions.
+   * Advances from {@code current} by one frequency step, ensuring the result is strictly after
+   * {@code today} to handle catch-up on missed executions.
    */
   private LocalDate computeNext(LocalDate current, RecurringFrequency frequency, LocalDate today) {
     LocalDate next = advance(current, frequency);

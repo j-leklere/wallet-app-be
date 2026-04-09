@@ -4,6 +4,8 @@ import com.walletapp.account.internal.domain.Account;
 import com.walletapp.account.internal.repository.AccountRepository;
 import com.walletapp.currency.internal.domain.Currency;
 import com.walletapp.exchangerate.DolarApiService;
+import com.walletapp.exchangerate.ExchangeRateResolver;
+import com.walletapp.shared.CurrencyCode;
 import com.walletapp.shared.PagedResponse;
 import com.walletapp.shared.exception.ResourceNotFoundException;
 import com.walletapp.transfer.internal.domain.Transfer;
@@ -33,6 +35,7 @@ public class TransferService {
   private final UserRepository userRepository;
   private final TransferMapper transferMapper;
   private final DolarApiService dolarApiService;
+  private final ExchangeRateResolver rateResolver;
 
   public PagedResponse<TransferResponse> findAllByUser(
       Long userId, TransferFilter filter, Pageable pageable) {
@@ -156,18 +159,14 @@ public class TransferService {
     BigDecimal usdToArs = dolarApiService.getUsdToArsRate(date);
     // from USD → ARS: rate = usdToArs
     // from ARS → USD: rate = 1/usdToArs (stored as how many ARS per unit of from-currency)
-    if ("USD".equals(from.getCode())) return usdToArs;
+    if (CurrencyCode.USD.equals(from.getCode())) return usdToArs;
     return BigDecimal.ONE.divide(usdToArs, 6, RoundingMode.HALF_UP);
   }
 
   private BigDecimal computeToAmount(
       BigDecimal fromAmount, Currency from, Currency to, BigDecimal exchangeRate) {
     if (from.getCode().equals(to.getCode())) return fromAmount;
-    if ("USD".equals(from.getCode())) {
-      // USD → ARS: toAmount = fromAmount * rate
-      return fromAmount.multiply(exchangeRate).setScale(4, RoundingMode.HALF_UP);
-    }
-    // ARS → USD: toAmount = fromAmount * (1/usdToArs) = fromAmount * exchangeRate
+    // Both USD→ARS and ARS→USD: toAmount = fromAmount * exchangeRate
     return fromAmount.multiply(exchangeRate).setScale(4, RoundingMode.HALF_UP);
   }
 }

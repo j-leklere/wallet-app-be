@@ -18,7 +18,9 @@ public class CurrencyService {
   private final CurrencyMapper currencyMapper;
 
   public List<CurrencyResponse> findAll() {
-    return currencyRepository.findAll().stream().map(currencyMapper::toResponse).toList();
+    return currencyRepository.findAllByActiveTrue().stream()
+        .map(currencyMapper::toResponse)
+        .toList();
   }
 
   public CurrencyResponse findById(Long id) {
