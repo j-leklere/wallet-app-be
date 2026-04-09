@@ -3,7 +3,7 @@ package com.walletapp.dashboard.internal.service;
 import com.walletapp.account.internal.domain.Account;
 import com.walletapp.account.internal.repository.AccountRepository;
 import com.walletapp.currency.internal.repository.CurrencyRepository;
-import com.walletapp.dashboard.internal.projection.AccountBalanceEntry;
+import com.walletapp.dashboard.internal.projection.AccountDualBalanceEntry;
 import com.walletapp.dashboard.internal.projection.CategoryExpenseEntry;
 import com.walletapp.dashboard.internal.projection.MonthlyAmountEntry;
 import com.walletapp.dashboard.internal.projection.PeriodSummaryEntry;
@@ -18,7 +18,9 @@ import com.walletapp.dashboard.web.response.DashboardSnapshotResponse.UpcomingRe
 import com.walletapp.exchangerate.DolarApiService;
 import com.walletapp.recurringtransaction.internal.domain.RecurringTransaction;
 import com.walletapp.recurringtransaction.internal.repository.RecurringTransactionRepository;
+import com.walletapp.shared.CurrencyCode;
 import com.walletapp.shared.TransactionType;
+import com.walletapp.shared.exception.ResourceNotFoundException;
 import com.walletapp.transaction.internal.domain.Transaction;
 import com.walletapp.transaction.internal.repository.TransactionRepository;
 import java.math.BigDecimal;
@@ -53,29 +55,35 @@ public class DashboardService {
     Summary summary;
     List<ChartPoint> chart;
     List<CategoryExpense> categoryBreakdown;
+    BigDecimal totalBalance = null;
 
     if (consolidate && currencyId != null) {
       ConsolidationParams params = buildConsolidationParams(currencyId);
       summary = buildSummaryConsolidated(userId, dateFrom, dateTo, params);
       chart = buildChartConsolidated(userId, params);
       categoryBreakdown = buildCategoryBreakdownConsolidated(userId, dateFrom, dateTo, params);
+      totalBalance = buildTotalBalanceConsolidated(userId, params);
     } else {
       summary = buildSummary(userId, dateFrom, dateTo, currencyId);
       chart = buildChart(userId, currencyId);
       categoryBreakdown = buildCategoryBreakdown(userId, dateFrom, dateTo, currencyId);
     }
 
-    return new DashboardAnalyticsResponse(summary, chart, categoryBreakdown);
+    return new DashboardAnalyticsResponse(summary, chart, categoryBreakdown, totalBalance);
   }
 
   private record ConsolidationParams(String targetCode, String otherCode, BigDecimal rate) {}
 
   private ConsolidationParams buildConsolidationParams(Long currencyId) {
-    String targetCode = currencyRepository.findById(currencyId).orElseThrow().getCode();
-    String otherCode = "ARS".equals(targetCode) ? "USD" : "ARS";
+    String targetCode =
+        currencyRepository
+            .findById(currencyId)
+            .orElseThrow(() -> new ResourceNotFoundException("Currency not found: " + currencyId))
+            .getCode();
+    String otherCode = CurrencyCode.ARS.equals(targetCode) ? CurrencyCode.USD : CurrencyCode.ARS;
     BigDecimal usdToArs = dolarApiService.getUsdToArsRate();
     BigDecimal rate =
-        "ARS".equals(targetCode)
+        CurrencyCode.ARS.equals(targetCode)
             ? usdToArs
             : BigDecimal.ONE.divide(usdToArs, 10, RoundingMode.HALF_UP);
     return new ConsolidationParams(targetCode, otherCode, rate);
@@ -107,6 +115,30 @@ public class DashboardService {
         transactionRepository.findCategoryExpensesConsolidated(
             userId, dateFrom, dateTo, p.targetCode(), p.otherCode(), p.rate());
     return buildCategoryExpenses(raw);
+  }
+
+  private BigDecimal buildTotalBalanceConsolidated(Long userId, ConsolidationParams params) {
+    Map<Long, BigDecimal> nativeBalances =
+        transactionRepository.findAllAccountDualBalances(userId).stream()
+            .collect(
+                java.util.stream.Collectors.toMap(
+                    AccountDualBalanceEntry::accountId, AccountDualBalanceEntry::nativeBalance));
+
+    return accountRepository.findAllByUserId(userId).stream()
+        .filter(Account::isActive)
+        .map(
+            account -> {
+              BigDecimal native_ = nativeBalances.getOrDefault(account.getId(), BigDecimal.ZERO);
+              String code = account.getCurrency().getCode();
+              if (params.targetCode().equals(code)) {
+                return native_;
+              } else if (params.otherCode().equals(code)) {
+                return native_.multiply(params.rate());
+              }
+              return BigDecimal.ZERO;
+            })
+        .reduce(BigDecimal.ZERO, BigDecimal::add)
+        .setScale(2, RoundingMode.HALF_UP);
   }
 
   // ── Filter builders ────────────────────────────────────────────────────────
@@ -169,7 +201,8 @@ public class DashboardService {
                     e.total()
                         .divide(totalExpenses, 4, RoundingMode.HALF_UP)
                         .multiply(BigDecimal.valueOf(100))
-                        .setScale(0, RoundingMode.HALF_UP)))
+                        .setScale(0, RoundingMode.HALF_UP),
+                    e.colorKey()))
         .toList();
   }
 
@@ -178,7 +211,7 @@ public class DashboardService {
   public DashboardSnapshotResponse getSnapshot(Long userId) {
     List<AccountEntry> accounts = buildAccounts(userId);
     BigDecimal totalBalance =
-        accounts.stream().map(AccountEntry::balance).reduce(BigDecimal.ZERO, BigDecimal::add);
+        accounts.stream().map(AccountEntry::arsBalance).reduce(BigDecimal.ZERO, BigDecimal::add);
     List<RecentTransaction> recentTransactions = buildRecentTransactions(userId);
     List<UpcomingRecurring> upcomingRecurring = buildUpcomingRecurring(userId);
 
@@ -187,23 +220,27 @@ public class DashboardService {
   }
 
   private List<AccountEntry> buildAccounts(Long userId) {
-    // Un único query para todos los balances
-    Map<Long, BigDecimal> balanceMap = new HashMap<>();
-    for (AccountBalanceEntry e : transactionRepository.findAllAccountBalances(userId)) {
-      balanceMap.put(e.accountId(), e.balance());
+    Map<Long, AccountDualBalanceEntry> balanceMap = new HashMap<>();
+    for (AccountDualBalanceEntry e : transactionRepository.findAllAccountDualBalances(userId)) {
+      balanceMap.put(e.accountId(), e);
     }
 
     return accountRepository.findAllByUserId(userId).stream()
         .filter(Account::isActive)
         .map(
-            a ->
-                new AccountEntry(
-                    a.getId(),
-                    a.getName(),
-                    a.getType(),
-                    a.getCurrency().getCode(),
-                    a.getCurrency().getSymbol(),
-                    balanceMap.getOrDefault(a.getId(), BigDecimal.ZERO)))
+            a -> {
+              AccountDualBalanceEntry e = balanceMap.get(a.getId());
+              BigDecimal nativeBalance = e != null ? e.nativeBalance() : BigDecimal.ZERO;
+              BigDecimal arsBalance = e != null ? e.arsBalance() : BigDecimal.ZERO;
+              return new AccountEntry(
+                  a.getId(),
+                  a.getName(),
+                  a.getType(),
+                  a.getCurrency().getCode(),
+                  a.getCurrency().getSymbol(),
+                  nativeBalance,
+                  arsBalance);
+            })
         .toList();
   }
 

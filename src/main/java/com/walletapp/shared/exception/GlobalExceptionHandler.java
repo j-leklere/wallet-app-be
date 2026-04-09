@@ -30,6 +30,24 @@ public class GlobalExceptionHandler {
         .body(ErrorResponse.of(HttpStatus.CONFLICT, ex.getMessage()));
   }
 
+  @ExceptionHandler(EntityInUseException.class)
+  public ResponseEntity<ErrorResponse> handleEntityInUse(EntityInUseException ex) {
+    return ResponseEntity.status(HttpStatus.CONFLICT)
+        .body(ErrorResponse.of(HttpStatus.CONFLICT, ex.getMessage()));
+  }
+
+  @ExceptionHandler(InvalidPasswordException.class)
+  public ResponseEntity<ErrorResponse> handleInvalidPassword(InvalidPasswordException ex) {
+    return ResponseEntity.badRequest()
+        .body(ErrorResponse.of(HttpStatus.BAD_REQUEST, ex.getMessage()));
+  }
+
+  @ExceptionHandler(BadRequestException.class)
+  public ResponseEntity<ErrorResponse> handleBadRequest(BadRequestException ex) {
+    return ResponseEntity.badRequest()
+        .body(ErrorResponse.of(HttpStatus.BAD_REQUEST, ex.getMessage()));
+  }
+
   @ExceptionHandler(ResourceNotFoundException.class)
   public ResponseEntity<ErrorResponse> handleResourceNotFound(ResourceNotFoundException ex) {
     return ResponseEntity.status(HttpStatus.NOT_FOUND)

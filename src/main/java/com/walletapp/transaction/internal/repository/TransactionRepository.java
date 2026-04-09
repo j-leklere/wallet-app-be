@@ -1,6 +1,7 @@
 package com.walletapp.transaction.internal.repository;
 
 import com.walletapp.dashboard.internal.projection.AccountBalanceEntry;
+import com.walletapp.dashboard.internal.projection.AccountDualBalanceEntry;
 import com.walletapp.dashboard.internal.projection.CategoryExpenseEntry;
 import com.walletapp.dashboard.internal.projection.MonthlyAmountEntry;
 import com.walletapp.dashboard.internal.projection.PeriodSummaryEntry;
@@ -19,6 +20,10 @@ public interface TransactionRepository
 
   List<Transaction> findAllByUserId(Long userId);
 
+  boolean existsByAccountId(Long accountId);
+
+  boolean existsByCategoryId(Long categoryId);
+
   Optional<Transaction> findByIdAndUserId(Long id, Long userId);
 
   List<Transaction> findTop5ByUserIdOrderByDateDescCreatedAtDesc(Long userId);
@@ -35,6 +40,19 @@ public interface TransactionRepository
           + " WHERE t.user.id = :userId"
           + " GROUP BY t.account.id")
   List<AccountBalanceEntry> findAllAccountBalances(@Param("userId") Long userId);
+
+  /** Balance nativo + balance en ARS por cuenta en un único query. */
+  @Query(
+      "SELECT new com.walletapp.dashboard.internal.projection.AccountDualBalanceEntry("
+          + "  t.account.id,"
+          + "  SUM(CASE WHEN t.type = com.walletapp.shared.TransactionType.INCOME"
+          + "      THEN t.originalAmount ELSE -t.originalAmount END),"
+          + "  SUM(CASE WHEN t.type = com.walletapp.shared.TransactionType.INCOME"
+          + "      THEN t.referenceAmount ELSE -t.referenceAmount END)"
+          + ") FROM Transaction t"
+          + " WHERE t.user.id = :userId"
+          + " GROUP BY t.account.id")
+  List<AccountDualBalanceEntry> findAllAccountDualBalances(@Param("userId") Long userId);
 
   /** Balance de una sola cuenta (usado al crear/actualizar). */
   @Query(
@@ -117,12 +135,13 @@ public interface TransactionRepository
           + "  COALESCE(c.name, 'Sin categoría'),"
           + "  SUM(CASE WHEN t.referenceCurrency.code = :targetCode THEN t.referenceAmount"
           + "           WHEN t.referenceCurrency.code = :otherCode  THEN t.referenceAmount * :rate"
-          + "           ELSE t.referenceAmount END)"
+          + "           ELSE t.referenceAmount END),"
+          + "  COALESCE(c.colorKey, 'slate')"
           + ") FROM Transaction t LEFT JOIN t.category c"
           + " WHERE t.user.id = :userId"
           + "   AND t.type = com.walletapp.shared.TransactionType.EXPENSE"
           + "   AND t.date BETWEEN :dateFrom AND :dateTo"
-          + " GROUP BY c.id, c.name"
+          + " GROUP BY c.id, c.name, c.colorKey"
           + " ORDER BY SUM(t.referenceAmount) DESC")
   List<CategoryExpenseEntry> findCategoryExpensesConsolidated(
       @Param("userId") Long userId,
@@ -135,13 +154,13 @@ public interface TransactionRepository
   /** Gastos agrupados por categoría para un período, ordenados de mayor a menor. */
   @Query(
       "SELECT new com.walletapp.dashboard.internal.projection.CategoryExpenseEntry("
-          + "  COALESCE(c.name, 'Sin categoría'), SUM(t.referenceAmount)"
+          + "  COALESCE(c.name, 'Sin categoría'), SUM(t.referenceAmount), COALESCE(c.colorKey, 'slate')"
           + ") FROM Transaction t LEFT JOIN t.category c"
           + " WHERE t.user.id = :userId"
           + "   AND t.type = com.walletapp.shared.TransactionType.EXPENSE"
           + "   AND t.date BETWEEN :dateFrom AND :dateTo"
           + "   AND (:currencyId IS NULL OR t.referenceCurrency.id = :currencyId)"
-          + " GROUP BY c.id, c.name"
+          + " GROUP BY c.id, c.name, c.colorKey"
           + " ORDER BY SUM(t.referenceAmount) DESC")
   List<CategoryExpenseEntry> findCategoryExpenses(
       @Param("userId") Long userId,

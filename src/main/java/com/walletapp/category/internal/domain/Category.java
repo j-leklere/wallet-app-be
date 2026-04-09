@@ -24,6 +24,12 @@ public class Category extends BaseEntity {
   @Column(nullable = false, length = 100)
   private String name;
 
+  @Column(name = "icon_key", nullable = false, length = 50)
+  private String iconKey;
+
+  @Column(name = "color_key", nullable = false, length = 20)
+  private String colorKey;
+
   @Column(nullable = false)
   private boolean active;
 
@@ -31,9 +37,11 @@ public class Category extends BaseEntity {
   @JoinColumn(name = "user_id", nullable = false)
   private User user;
 
-  public static Category create(String name, User user) {
+  public static Category create(String name, String iconKey, String colorKey, User user) {
     Category category = new Category();
     category.name = name;
+    category.iconKey = iconKey;
+    category.colorKey = colorKey;
     category.user = user;
     category.active = true;
     return category;
