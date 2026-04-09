@@ -18,6 +18,7 @@ import com.walletapp.currency.internal.repository.CurrencyRepository;
 import com.walletapp.shared.exception.ResourceNotFoundException;
 import com.walletapp.user.internal.domain.User;
 import com.walletapp.user.internal.repository.UserRepository;
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -40,7 +41,7 @@ class AccountServiceTest {
   void findAllByUser_returnsMappedList() {
     Account account = new Account();
     AccountResponse response =
-        new AccountResponse(1L, "Checking", AccountType.CHECKING, 1L, "USD", "$", true);
+        new AccountResponse(1L, "Checking", AccountType.CHECKING, 1L, "USD", "$", true, BigDecimal.ZERO);
     when(accountRepository.findAllByUserId(1L)).thenReturn(List.of(account));
     when(accountMapper.toResponse(account)).thenReturn(response);
 
@@ -53,7 +54,7 @@ class AccountServiceTest {
   void findById_returnsMappedAccount() {
     Account account = new Account();
     AccountResponse response =
-        new AccountResponse(1L, "Checking", AccountType.CHECKING, 1L, "USD", "$", true);
+        new AccountResponse(1L, "Checking", AccountType.CHECKING, 1L, "USD", "$", true, BigDecimal.ZERO);
     when(accountRepository.findByIdAndUserId(1L, 1L)).thenReturn(Optional.of(account));
     when(accountMapper.toResponse(account)).thenReturn(response);
 
@@ -77,7 +78,7 @@ class AccountServiceTest {
     User user = new User();
     Account saved = new Account();
     AccountResponse response =
-        new AccountResponse(1L, "Checking", AccountType.CHECKING, 1L, "USD", "$", true);
+        new AccountResponse(1L, "Checking", AccountType.CHECKING, 1L, "USD", "$", true, BigDecimal.ZERO);
     when(currencyRepository.findById(1L)).thenReturn(Optional.of(currency));
     when(userRepository.findById(1L)).thenReturn(Optional.of(user));
     when(accountRepository.save(any(Account.class))).thenReturn(saved);
@@ -120,7 +121,7 @@ class AccountServiceTest {
     Account account = new Account();
     Account saved = new Account();
     AccountResponse response =
-        new AccountResponse(1L, "Updated", AccountType.SAVINGS, 1L, "USD", "$", false);
+        new AccountResponse(1L, "Updated", AccountType.SAVINGS, 1L, "USD", "$", false, BigDecimal.ZERO);
     when(accountRepository.findByIdAndUserId(1L, 1L)).thenReturn(Optional.of(account));
     when(accountRepository.save(account)).thenReturn(saved);
     when(accountMapper.toResponse(saved)).thenReturn(response);

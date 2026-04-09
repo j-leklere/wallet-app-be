@@ -35,7 +35,7 @@ class CategoryServiceTest {
   @Test
   void findAllByUser_returnsMappedList() {
     Category cat = new Category();
-    CategoryResponse response = new CategoryResponse(1L, "Food", true);
+    CategoryResponse response = new CategoryResponse(1L, "Food", "tag", "violet", true);
     when(categoryRepository.findAllByUserId(1L)).thenReturn(List.of(cat));
     when(categoryMapper.toResponse(cat)).thenReturn(response);
 
@@ -47,7 +47,7 @@ class CategoryServiceTest {
   @Test
   void findById_returnsMappedCategory() {
     Category cat = new Category();
-    CategoryResponse response = new CategoryResponse(1L, "Food", true);
+    CategoryResponse response = new CategoryResponse(1L, "Food", "tag", "violet", true);
     when(categoryRepository.findByIdAndUserId(1L, 1L)).thenReturn(Optional.of(cat));
     when(categoryMapper.toResponse(cat)).thenReturn(response);
 
@@ -69,12 +69,13 @@ class CategoryServiceTest {
   void create_savesAndReturnsCategory() {
     User user = new User();
     Category saved = new Category();
-    CategoryResponse response = new CategoryResponse(1L, "Food", true);
+    CategoryResponse response = new CategoryResponse(1L, "Food", "tag", "violet", true);
     when(userRepository.findById(1L)).thenReturn(Optional.of(user));
     when(categoryRepository.save(any(Category.class))).thenReturn(saved);
     when(categoryMapper.toResponse(saved)).thenReturn(response);
 
-    CategoryResponse result = categoryService.create(new CreateCategoryRequest("Food"), 1L);
+    CategoryResponse result =
+        categoryService.create(new CreateCategoryRequest("Food", "tag", "violet"), 1L);
 
     assertThat(result).isEqualTo(response);
     verify(categoryRepository).save(any(Category.class));
@@ -84,7 +85,8 @@ class CategoryServiceTest {
   void create_throwsWhenUserNotFound() {
     when(userRepository.findById(1L)).thenReturn(Optional.empty());
 
-    assertThatThrownBy(() -> categoryService.create(new CreateCategoryRequest("Food"), 1L))
+    assertThatThrownBy(
+            () -> categoryService.create(new CreateCategoryRequest("Food", "tag", "violet"), 1L))
         .isInstanceOf(ResourceNotFoundException.class)
         .hasMessageContaining("1");
   }
@@ -93,13 +95,13 @@ class CategoryServiceTest {
   void update_appliesChangesAndSaves() {
     Category cat = new Category();
     Category saved = new Category();
-    CategoryResponse response = new CategoryResponse(1L, "Updated", false);
+    CategoryResponse response = new CategoryResponse(1L, "Updated", "tag", "violet", false);
     when(categoryRepository.findByIdAndUserId(1L, 1L)).thenReturn(Optional.of(cat));
     when(categoryRepository.save(cat)).thenReturn(saved);
     when(categoryMapper.toResponse(saved)).thenReturn(response);
 
     CategoryResponse result =
-        categoryService.update(1L, 1L, new UpdateCategoryRequest("Updated", false));
+        categoryService.update(1L, 1L, new UpdateCategoryRequest("Updated", false, null, null));
 
     assertThat(result).isEqualTo(response);
   }

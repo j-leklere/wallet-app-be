@@ -37,7 +37,7 @@ class CategoryControllerTest {
   void findAll_returnsOk() throws Exception {
     when(authService.getCurrentUserId()).thenReturn(1L);
     when(categoryService.findAllByUser(1L))
-        .thenReturn(List.of(new CategoryResponse(1L, "Food", true)));
+        .thenReturn(List.of(new CategoryResponse(1L, "Food", "tag", "violet", true)));
 
     mockMvc
         .perform(get("/api/categories"))
@@ -49,7 +49,8 @@ class CategoryControllerTest {
   @Test
   void findById_returnsOk() throws Exception {
     when(authService.getCurrentUserId()).thenReturn(1L);
-    when(categoryService.findById(1L, 1L)).thenReturn(new CategoryResponse(1L, "Food", true));
+    when(categoryService.findById(1L, 1L))
+        .thenReturn(new CategoryResponse(1L, "Food", "tag", "violet", true));
 
     mockMvc
         .perform(get("/api/categories/1"))
@@ -69,14 +70,15 @@ class CategoryControllerTest {
   @Test
   void create_returnsCreated() throws Exception {
     when(authService.getCurrentUserId()).thenReturn(1L);
-    when(categoryService.create(new CreateCategoryRequest("Food"), 1L))
-        .thenReturn(new CategoryResponse(1L, "Food", true));
+    when(categoryService.create(new CreateCategoryRequest("Food", "tag", "violet"), 1L))
+        .thenReturn(new CategoryResponse(1L, "Food", "tag", "violet", true));
 
     mockMvc
         .perform(
             post("/api/categories")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(new CreateCategoryRequest("Food"))))
+                .content(objectMapper.writeValueAsString(
+                    new CreateCategoryRequest("Food", "tag", "violet"))))
         .andExpect(status().isCreated())
         .andExpect(jsonPath("$.id").value(1))
         .andExpect(jsonPath("$.name").value("Food"));
@@ -88,7 +90,8 @@ class CategoryControllerTest {
         .perform(
             post("/api/categories")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(new CreateCategoryRequest(""))))
+                .content(objectMapper.writeValueAsString(
+                    new CreateCategoryRequest("", "tag", "violet"))))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.fieldErrors.name").exists());
   }
@@ -96,9 +99,9 @@ class CategoryControllerTest {
   @Test
   void update_returnsOk() throws Exception {
     when(authService.getCurrentUserId()).thenReturn(1L);
-    UpdateCategoryRequest request = new UpdateCategoryRequest("Updated", null);
+    UpdateCategoryRequest request = new UpdateCategoryRequest("Updated", null, null, null);
     when(categoryService.update(1L, 1L, request))
-        .thenReturn(new CategoryResponse(1L, "Updated", true));
+        .thenReturn(new CategoryResponse(1L, "Updated", "tag", "violet", true));
 
     mockMvc
         .perform(
