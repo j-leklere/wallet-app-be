@@ -13,6 +13,7 @@ import com.walletapp.category.web.request.CreateCategoryRequest;
 import com.walletapp.category.web.request.UpdateCategoryRequest;
 import com.walletapp.category.web.response.CategoryResponse;
 import com.walletapp.shared.exception.ResourceNotFoundException;
+import com.walletapp.transaction.internal.repository.TransactionRepository;
 import com.walletapp.user.internal.domain.User;
 import com.walletapp.user.internal.repository.UserRepository;
 import java.util.List;
@@ -29,6 +30,7 @@ class CategoryServiceTest {
   @Mock CategoryRepository categoryRepository;
   @Mock UserRepository userRepository;
   @Mock CategoryMapper categoryMapper;
+  @Mock TransactionRepository transactionRepository;
 
   @InjectMocks CategoryService categoryService;
 
@@ -110,6 +112,7 @@ class CategoryServiceTest {
   void delete_deletesCategory() {
     Category cat = new Category();
     when(categoryRepository.findByIdAndUserId(1L, 1L)).thenReturn(Optional.of(cat));
+    when(transactionRepository.existsByCategoryId(1L)).thenReturn(false);
 
     categoryService.delete(1L, 1L);
 

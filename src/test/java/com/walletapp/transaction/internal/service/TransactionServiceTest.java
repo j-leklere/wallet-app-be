@@ -13,6 +13,7 @@ import com.walletapp.category.internal.domain.Category;
 import com.walletapp.category.internal.repository.CategoryRepository;
 import com.walletapp.currency.internal.domain.Currency;
 import com.walletapp.currency.internal.repository.CurrencyRepository;
+import com.walletapp.exchangerate.ExchangeRateResolver;
 import com.walletapp.shared.PagedResponse;
 import com.walletapp.shared.TransactionType;
 import com.walletapp.shared.exception.ResourceNotFoundException;
@@ -50,6 +51,7 @@ class TransactionServiceTest {
   @Mock CurrencyRepository currencyRepository;
   @Mock UserRepository userRepository;
   @Mock TransactionMapper transactionMapper;
+  @Mock ExchangeRateResolver rateResolver;
 
   @InjectMocks TransactionService transactionService;
 
@@ -108,6 +110,9 @@ class TransactionServiceTest {
     when(userRepository.findById(1L)).thenReturn(Optional.of(user));
     when(currencyRepository.findById(1L)).thenReturn(Optional.of(currency));
     when(accountRepository.findByIdAndUserId(1L, 1L)).thenReturn(Optional.of(account));
+    when(rateResolver.resolveRate(any(), any())).thenReturn(BigDecimal.ONE);
+    when(rateResolver.resolveReferenceCurrency(any())).thenReturn(currency);
+    when(rateResolver.resolveReferenceAmount(any(), any(), any())).thenReturn(BigDecimal.TEN);
     when(transactionRepository.save(any(Transaction.class))).thenReturn(saved);
     when(transactionMapper.toResponse(saved)).thenReturn(response);
 
@@ -140,6 +145,9 @@ class TransactionServiceTest {
     when(currencyRepository.findById(1L)).thenReturn(Optional.of(currency));
     when(accountRepository.findByIdAndUserId(1L, 1L)).thenReturn(Optional.of(account));
     when(categoryRepository.findByIdAndUserId(1L, 1L)).thenReturn(Optional.of(category));
+    when(rateResolver.resolveRate(any(), any())).thenReturn(BigDecimal.ONE);
+    when(rateResolver.resolveReferenceCurrency(any())).thenReturn(currency);
+    when(rateResolver.resolveReferenceAmount(any(), any(), any())).thenReturn(BigDecimal.TEN);
     when(transactionRepository.save(any(Transaction.class))).thenReturn(saved);
     when(transactionMapper.toResponse(saved)).thenReturn(response);
 
